@@ -1,101 +1,152 @@
-import Image from "next/image";
+"use client";
+import { useState, useEffect } from "react";
+import "./globals.css";
+import { nanoid } from "nanoid";
+import { useRouter } from "next/navigation";
+import popularCities from "./search/cityList";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.js
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const router = useRouter();
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  const [errorHandler, setErrorHandler] = useState({
+    error: false,
+    loading: false,
+  });
+  const [cityData, setCityData] = useState({});
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const cities = [
+    "New York",
+    "London",
+    "Paris",
+    "Washington DC",
+    "Ottawa",
+    "Buenos Aires",
+    "Tokyo",
+    "Chicago",
+    "Los Angeles",
+    "Berlin",
+    "Shibuya",
+    "Rome",
+  ];
+
+  async function fetchCityData(city) {
+    setErrorHandler({ error: false, loading: true });
+    try {
+      const apiKey = process.env.NEXT_PUBLIC_OPEN_WEATHER;
+      if (!apiKey) throw new Error("API key is missing!");
+
+      const response = await fetch(
+        `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=metric`
+      );
+      if (!response.ok) {
+        throw new Error(`An error occurred: ${response.status}`);
+      }
+
+      const result = await response.json();
+      return {
+        temp: result.main.temp,
+        skyState: result.weather[0]?.description || "Unknown",
+      };
+    } catch (error) {
+      console.log(error.message);
+      setErrorHandler({ error: true, loading: false });
+      return null;
+    }
+  }
+
+  useEffect(() => {
+    async function fetchCityDataForAll() {
+      const data = {};
+      for (const city of cities) {
+        const cityWeather = await fetchCityData(city);
+        if (cityWeather !== null) data[city] = cityWeather;
+      }
+      setCityData(data);
+      setErrorHandler({ error: false, loading: false });
+    }
+    fetchCityDataForAll();
+  }, []);
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      router.push(`/search?area=${encodeURIComponent(searchQuery)}`);
+      setSearchQuery("");
+    }
+  };
+
+  return (
+    <main className="flex flex-col">
+      <div className="bg-sky flex items-center justify-center h-[15rem] w-full md:h-[20rem]">
+        <h1 className="text-center font-bold text-3xl md:text-4xl">
+          Welcome to Atmosphere
+        </h1>
+      </div>
+
+      <div className="mt-10 flex flex-col items-center">
+        <form className="flex flex-row" onSubmit={handleSearch}>
+          <input
+            required
+            className="py-1 px-3 capitalize text-2xl font-bold outline-none border-2 border-blue-950 rounded-tl-[5px] rounded-bl-[5px] bg-transparent"
+            type="text"
+            placeholder="Enter an area.."
+            list="cities"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            aria-label="Search for a city"
+          />
+          <datalist id="cities">
+            {popularCities.map((city) => (
+              <option key={nanoid(10)} value={city} />
+            ))}
+          </datalist>
+          <button
+            type="submit"
+            className="rounded-tr-[5px] rounded-br-[5px] text-3xl outline-none bg-blue-950 px-3"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            🔍
+          </button>
+        </form>
+
+        <div className="mt-10">
+          {errorHandler.error ? (
+            <p className="text-red-500">Something went wrong</p>
+          ) : errorHandler.loading ? (
+            <div className=" flex flex-col gap-4 items-center">
+              <div className="loader" />
+              <p className=" text-2xl">Loading...</p>
+            </div>
+          ) : (
+            <>
+              <div className=" mt-10 flex flex-col items-center gap-1">
+                <h1 className="text-2xl text-slate-300 font-bold text-center md:text-3xl">
+                  Temperature in popular cities
+                </h1>
+                <div className="hidden w-[55rem] rounded-[25px] h-[2px] bg-slate-300 md:block"></div>
+              </div>
+              <div className="flex flex-wrap mt-5 w-auto gap-5 justify-center md:w-[60rem]">
+                {Object.keys(cityData).map((city) => (
+                  <div
+                    className="flex flex-col bg-[#1e1e732f] shadow-blue-900 border border-slate-400 p-3 w-[10rem] rounded-[5px] items-center gap-4 md:w-[13rem]"
+                    key={nanoid(10)}
+                  >
+                    <p className="text-xl text-center text-blue-800 font-bold md:text-2xl">
+                      {city}
+                    </p>
+                    <p className="font-semibold text-xl">
+                      {cityData[city].temp}°C
+                    </p>
+                    <p className="text-sm italic font-semibold text-gray-300">
+                      {cityData[city].skyState}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      </div>
+    </main>
   );
 }
